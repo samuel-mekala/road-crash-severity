@@ -1,9 +1,10 @@
 # 🚗 Road Crash Injury Severity Prediction
 
-> **Academic Project** · VIT-AP University · Jan–Apr 2024  
-> **Team Size:** 4 · **Role: Team Lead**
+> **Senior Design Project** · VIT-AP University · May 2025  
+> **Team:** Sai Pranav Kothapalli · Sri Hari Priya Panchumarthi · Meghana Bindem · **Samuel Mekala (21BCB7145)**  
+> **Guide:** Dr. Deepthi Godavarthi · School of Computer Science and Engineering (SCOPE)
 
----
+-----
 
 ## 📌 Overview
 
@@ -11,62 +12,79 @@ Road accidents claim millions of lives annually. Accurate prediction of injury s
 
 **Achieved 96.46% accuracy** — one of the highest reported for this class of problem.
 
----
+-----
 
 ## 🏆 Results
 
-| Metric | Score |
-|---|---|
-| **Accuracy** | **96.46%** |
-| **Recall** | High |
-| **F1-Score** | High |
+|Metric       |Score     |
+|-------------|----------|
+|**Accuracy** |**96.46%**|
+|**Precision**|**97%**   |
+|**Recall**   |**96%**   |
+|**F1-Score** |**96%**   |
+|**ROC-AUC**  |**0.91**  |
 
----
+-----
+
+## 📊 Dataset
+
+**UK Road Accident Dataset** (Kaggle) — 1.5M+ real accident records with features including:
+
+- Location (latitude/longitude), date/time, road conditions
+- Vehicle type, speed limit, junction detail
+- Weather conditions, light conditions
+- **Target:** Accident Severity (1 = Slight, 2 = Serious, 3 = Fatal)
+
+-----
 
 ## 🧠 Model Architecture
 
 ### Hybrid Approach: ST-GNN + ExtraTrees
 
 ```
-Real-World Accident Data
+Real-World Accident Data (UK, 1.5M+ records)
         ↓
   Preprocessing (cleaning, feature selection,
-  label encoding, normalization, oversampling)
+  label encoding, normalization, SMOTE oversampling)
         ↓
 ┌──────────────────────────────┐
 │  Spatio-Temporal GNN (ST-GNN)│  ← Captures geographic & temporal crash patterns
-│  (PyTorch Geometric)         │
+│  (PyTorch Geometric)         │    kNN graph on lat/lon + time proximity
 └──────────────────────────────┘
         +
 ┌──────────────────────────────┐
 │  ExtraTreesClassifier        │  ← Feature-based ensemble learning
-│  (Scikit-learn)              │
+│  (Scikit-learn, 200 trees)   │
 └──────────────────────────────┘
         ↓
-  Hybrid Prediction: Injury Severity Class
+  Logistic Regression Meta-Classifier (stacked ensemble)
+        ↓
+  Injury Severity Prediction: Slight / Serious / Fatal
 ```
 
 **Why this hybrid?**
+
 - **ST-GNN** captures *where* and *when* crashes cluster — spatial proximity (dangerous intersections) and temporal patterns (rush hour, weekends)
 - **ExtraTrees** captures *feature-level* patterns — vehicle type, speed, road condition, weather
 - Together, they cover both **context** and **attributes**
 
----
+-----
 
 ## ⚙️ Preprocessing Pipeline
 
 ```
-Raw Accident Dataset
-    → Data Cleaning (remove nulls, fix formats)
-    → Feature Selection (drop redundant columns)
+Raw Accident Dataset (1.5M+ records)
+    → Drop redundant identifier columns
+    → Drop columns with >40% missing values
+    → Impute numeric with median
     → Label Encoding (categorical → numeric)
-    → Normalization (StandardScaler)
-    → Class Imbalance Handling (oversampling)
-    → Graph Construction (spatial adjacency matrix)
-    → Train/Test Split
+    → StandardScaler normalization
+    → SMOTE oversampling (handle class imbalance)
+    → Train/Test Split (80/20)
+    → kNN Graph Construction (k=5, spatial proximity)
 ```
 
----
+-----
 
 ## 🛠️ Tech Stack
 
@@ -77,29 +95,21 @@ Raw Accident Dataset
 ![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
 ![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
 
----
+-----
 
 ## 📁 Project Structure
 
 ```
 road-crash-severity/
-├── data/
-│   └── accident_data.csv
-├── notebooks/
-│   └── EDA.ipynb
-├── src/
-│   ├── preprocessing.py       # Cleaning, encoding, oversampling
-│   ├── graph_builder.py       # Build spatial graph for ST-GNN
-│   ├── stgnn_model.py         # Spatio-Temporal GNN architecture
-│   ├── extratrees_model.py    # ExtraTrees classifier
-│   └── hybrid_model.py        # Combine ST-GNN + ExtraTrees
-├── train.py
-├── evaluate.py
+├── analysis.py         # EDA — boxplots, correlation heatmap, count plots (Appendix 1)
+├── train.py            # Full pipeline: preprocessing → ST-GNN → ExtraTrees → ensemble (Appendix 2)
 ├── requirements.txt
 └── README.md
 ```
 
----
+> After running `train.py`, confusion matrix saved to `confusion_matrix.png` and feature importance to `feature_importance.png`.
+
+-----
 
 ## 🚀 How to Run
 
@@ -111,17 +121,17 @@ cd road-crash-severity
 # Install dependencies
 pip install -r requirements.txt
 
-# Preprocess data
-python src/preprocessing.py
+# Download UK Road Accident Dataset from Kaggle → place as data/UK_Accident.csv
+# https://www.kaggle.com/datasets/silicon99/dft-accident-data
 
-# Train the hybrid model
+# Run EDA and visualisations
+python analysis.py
+
+# Train the full hybrid model (ST-GNN + ETC + Logistic Regression)
 python train.py
-
-# Evaluate
-python evaluate.py
 ```
 
----
+-----
 
 ## 🔮 Future Work
 
@@ -130,6 +140,6 @@ python evaluate.py
 - [ ] Expand to national highway networks
 - [ ] Explainability with SHAP for black-box transparency
 
----
+-----
 
-*VIT-AP University · Jan–Apr 2024 · Team Lead*
+*VIT-AP University · SCOPE · Senior Design Project · May 2025*
