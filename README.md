@@ -1,7 +1,7 @@
 # 🚗 Road Crash Injury Severity Prediction
 
 > **Senior Design Project** · VIT-AP University · May 2025  
-> **Team:** Sai Pranav Kothapalli · Sri Hari Priya Panchumarthi · Meghana Bindem · **Samuel Mekala (21BCB7145)**  
+> **Team:** Sri Hari Priya Panchumarthi · **Samuel Mekala**  
 > **Guide:** Dr. Deepthi Godavarthi · School of Computer Science and Engineering (SCOPE)
 
 -----
