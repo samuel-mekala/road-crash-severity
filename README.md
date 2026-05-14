@@ -150,8 +150,7 @@ road-crash-severity/
 │   ├── hybrid_model.png                # Full hybrid architecture diagram
 │   ├── stgnn_flow.png                  # ST-GNN flow diagram
 │   ├── stgnn.png                       # ST-GNN Architecture
-│   ├── ETC.png                         # Ectra Tree Classifier Architecture
-│   └── feature_importance.png          # ETC feature importance
+│   └── ETC.png                         # Ectra Tree Classifier Architecture
 ├── analysis.py                         # EDA — boxplots, correlation, count plots
 ├── train.py                            # Full pipeline — preprocessing → ST-GNN → ETC → ensemble
 ├── road_crash_severity.ipynb           # Full notebook with explanations
