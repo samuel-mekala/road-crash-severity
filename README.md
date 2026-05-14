@@ -1,8 +1,12 @@
 # 🚗 Road Crash Injury Severity Prediction
 
-> **Senior Design Project** · VIT-AP University · May 2025  
+> **Project** · VIT-AP University · Apr 2024  
 > **Team:** Sri Hari Priya Panchumarthi · **Samuel Mekala**  
 > **Guide:** Dr. Deepthi Godavarthi · School of Computer Science and Engineering (SCOPE)
+
+[![Python](https://img.shields.io/badge/Python-3.10-blue?style=flat-square&logo=python)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0-EE4C2C?style=flat-square&logo=pytorch)](https://pytorch.org)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?style=flat-square&logo=github-actions)](/.github/workflows/ci.yml)
 
 -----
 
@@ -14,17 +18,90 @@ Road accidents claim millions of lives annually. Accurate prediction of injury s
 
 -----
 
-## 🏆 Results
+## 🏗️ System Architecture
+ 
+![Hybrid Model Framework](images/hybrid_model_framework.png)
+ 
+```
+                        UK Road Accident Dataset (1.5M+ records)
+                                      │
+                                      ▼
+                        ┌─────────────────────────────┐
+                        │     Data Preprocessing      │
+                        │  • Drop redundant features  │
+                        │  • Impute missing values    │
+                        │  • Label encode categoricals│
+                        │  • StandardScaler normalize │
+                        │  • SMOTE oversampling       │
+                        └────────────┬────────────────┘
+                                     │
+                            ┌────────┴────────┐
+                            ▼                 ▼
+                        ┌──────────┐    ┌──────────────────┐
+                        │   ETC    │    │    ST-GNN        │
+                        │ Extra    │    │ kNN graph →      │
+                        │ Trees    │    │ 3-layer GCN +    │
+                        │Classifier│    │ Dropout(0.5)     │
+                        └────┬─────┘    └──────┬───────────┘
+                             └────────┬─────────┘
+                                      ▼
+                           Logistic Regression Meta-Classifier
+                                      │
+                                      ▼
+                          Injury Severity Prediction: Slight / Serious / Fatal
+```
+ 
+---
+ 
+## 📊 ST-GNN Architecture
+ 
+![ST-GNN Sequential Flow](images/stgnn_sequential_flow.png)
+ 
+![ST-GNN Sequence Diagram](images/stgnn_sequence_diagram.png)
 
-|Metric       |Score     |
-|-------------|----------|
-|**Accuracy** |**96.46%**|
-|**Precision**|**97%**   |
-|**Recall**   |**96%**   |
-|**F1-Score** |**96%**   |
-|**ROC-AUC**  |**0.91**  |
+---
+
+## 📈 Results
+ 
+![Performance Metrics](images/performance_metrics_table.png)
+ 
+| Model | Accuracy | Precision | Recall | F1 |
+|---|---|---|---|---|
+| ST-GNN (standalone) | 85.26% | 0.73 | 0.85 | 0.78 |
+| ExtraTrees (standalone) | 92.31% | 0.88 | 0.85 | 0.90 |
+| **Hybrid Ensemble** | **96.46%** | **0.97** | **0.96** | **0.96** |
+ 
+### Confusion Matrix
+ 
+![Confusion Matrix](images/confusion_matrix.png)
+ 
+### Feature Importance
+ 
+![Feature Importance](images/feature_importance.png)
 
 -----
+
+## 🔑 Key Engineering Decisions
+
+**Why this hybrid?**
+
+- **ST-GNN** captures *where* and *when* crashes cluster — spatial proximity (dangerous intersections) and temporal patterns (rush hour, weekends)
+- **ExtraTrees** captures *feature-level* patterns — vehicle type, speed, road condition, weather
+- Together, they cover both **context** and **attributes**
+ 
+**Why ExtraTrees over Random Forest?**
+Fully random split thresholds — faster and less prone to overfitting on high-dimensional accident data.
+ 
+**Why kNN for graph edges?**
+Accidents near each other geographically and temporally share severity patterns. kNN (k=5) captures this without needing explicit road network data.
+ 
+**Why SMOTE?**
+Fatal accidents (~5%) are severely underrepresented. SMOTE generates synthetic minority samples preserving feature distributions.
+ 
+**Why Logistic Regression as meta-classifier?**
+Interpretable, fast, and learns a linear boundary in the combined prediction space of both models.
+
+---
 
 ## 📊 Dataset
 
@@ -34,39 +111,6 @@ Road accidents claim millions of lives annually. Accurate prediction of injury s
 - Vehicle type, speed limit, junction detail
 - Weather conditions, light conditions
 - **Target:** Accident Severity (1 = Slight, 2 = Serious, 3 = Fatal)
-
------
-
-## 🧠 Model Architecture
-
-### Hybrid Approach: ST-GNN + ExtraTrees
-
-```
-Real-World Accident Data (UK, 1.5M+ records)
-        ↓
-  Preprocessing (cleaning, feature selection,
-  label encoding, normalization, SMOTE oversampling)
-        ↓
-┌──────────────────────────────┐
-│  Spatio-Temporal GNN (ST-GNN)│  ← Captures geographic & temporal crash patterns
-│  (PyTorch Geometric)         │    kNN graph on lat/lon + time proximity
-└──────────────────────────────┘
-        +
-┌──────────────────────────────┐
-│  ExtraTreesClassifier        │  ← Feature-based ensemble learning
-│  (Scikit-learn, 200 trees)   │
-└──────────────────────────────┘
-        ↓
-  Logistic Regression Meta-Classifier (stacked ensemble)
-        ↓
-  Injury Severity Prediction: Slight / Serious / Fatal
-```
-
-**Why this hybrid?**
-
-- **ST-GNN** captures *where* and *when* crashes cluster — spatial proximity (dangerous intersections) and temporal patterns (rush hour, weekends)
-- **ExtraTrees** captures *feature-level* patterns — vehicle type, speed, road condition, weather
-- Together, they cover both **context** and **attributes**
 
 -----
 
@@ -87,13 +131,12 @@ Raw Accident Dataset (1.5M+ records)
 -----
 
 ## 🛠️ Tech Stack
-
+ 
 ![Python](https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
-![PyTorch Geometric](https://img.shields.io/badge/PyTorch%20Geometric-EE4C2C?style=flat-square&logo=pytorch&logoColor=white)
+![PyTorch Geometric](https://img.shields.io/badge/PyG-GNN-EE4C2C?style=flat-square)
 ![Scikit-learn](https://img.shields.io/badge/Scikit--learn-F7931E?style=flat-square&logo=scikit-learn&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-150458?style=flat-square&logo=pandas&logoColor=white)
-![NumPy](https://img.shields.io/badge/NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
 
 -----
 
@@ -101,34 +144,46 @@ Raw Accident Dataset (1.5M+ records)
 
 ```
 road-crash-severity/
-├── analysis.py         # EDA — boxplots, correlation heatmap, count plots (Appendix 1)
-├── train.py            # Full pipeline: preprocessing → ST-GNN → ExtraTrees → ensemble (Appendix 2)
+├── .github/
+│   └── workflows/
+│       └── ci.yml                      # GitHub Actions CI
+├── images/
+│   ├── hybrid_model_framework.png      # Full hybrid architecture diagram
+│   ├── stgnn_sequential_flow.png       # ST-GNN flow diagram
+│   ├── stgnn_sequence_diagram.png      # ST-GNN sequence diagram
+│   ├── confusion_matrix.png            # Hybrid model confusion matrix
+│   ├── feature_importance.png          # ETC feature importance
+│   └── performance_metrics_table.png  # Model comparison table
+├── analysis.py                         # EDA — boxplots, correlation, count plots
+├── train.py                            # Full pipeline — preprocessing → ST-GNN → ETC → ensemble
+├── road_crash_severity.ipynb           # Full notebook with explanations
 ├── requirements.txt
 └── README.md
 ```
 
-> After running `train.py`, confusion matrix saved to `confusion_matrix.png` and feature importance to `feature_importance.png`.
-
 -----
 
 ## 🚀 How to Run
-
+ 
 ```bash
 # Clone the repo
 git clone https://github.com/samuel-mekala/road-crash-severity.git
 cd road-crash-severity
-
+ 
 # Install dependencies
 pip install -r requirements.txt
-
+ 
 # Download UK Road Accident Dataset from Kaggle → place as data/UK_Accident.csv
 # https://www.kaggle.com/datasets/silicon99/dft-accident-data
-
-# Run EDA and visualisations
+ 
+# Run EDA first
 python analysis.py
-
-# Train the full hybrid model (ST-GNN + ETC + Logistic Regression)
+ 
+# Train the hybrid model
 python train.py
+ 
+# Or explore full notebook
+jupyter notebook road_crash_severity.ipynb
 ```
 
 -----
@@ -136,10 +191,11 @@ python train.py
 ## 🔮 Future Work
 
 - [ ] Real-time prediction API for emergency services
+- [ ] Replace kNN edges with actual road network graph (OSMnx)
 - [ ] Integration with live traffic data streams
 - [ ] Expand to national highway networks
 - [ ] Explainability with SHAP for black-box transparency
 
 -----
 
-*VIT-AP University · SCOPE · Senior Design Project · May 2025*
+*VIT-AP University · SCOPE · Project · Apr 2024*
