@@ -147,12 +147,11 @@ road-crash-severity/
 │   └── workflows/
 │       └── ci.yml                      # GitHub Actions CI
 ├── images/
-│   ├── hybrid_model_framework.png      # Full hybrid architecture diagram
-│   ├── stgnn_sequential_flow.png       # ST-GNN flow diagram
-│   ├── stgnn_sequence_diagram.png      # ST-GNN sequence diagram
-│   ├── confusion_matrix.png            # Hybrid model confusion matrix
-│   ├── feature_importance.png          # ETC feature importance
-│   └── performance_metrics_table.png  # Model comparison table
+│   ├── hybrid_model.png                # Full hybrid architecture diagram
+│   ├── stgnn_flow.png                  # ST-GNN flow diagram
+│   ├── stgnn.png                       # ST-GNN Architecture
+│   ├── ETC.png                         # Ectra Tree Classifier Architecture
+│   └── feature_importance.png          # ETC feature importance
 ├── analysis.py                         # EDA — boxplots, correlation, count plots
 ├── train.py                            # Full pipeline — preprocessing → ST-GNN → ETC → ensemble
 ├── road_crash_severity.ipynb           # Full notebook with explanations
