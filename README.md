@@ -19,9 +19,7 @@ Road accidents claim millions of lives annually. Accurate prediction of injury s
 -----
 
 ## 🏗️ System Architecture
- 
-![Hybrid Model Framework](images/hybrid_model_framework.png)
- 
+  
 ```
                         UK Road Accident Dataset (1.5M+ records)
                                       │
@@ -53,31 +51,32 @@ Road accidents claim millions of lives annually. Accurate prediction of injury s
  
 ---
  
-## 📊 ST-GNN Architecture
+## 📊 ST-GNN Architecture & Flow
  
-![ST-GNN Sequential Flow](images/stgnn_sequential_flow.png)
+![ST-GNN Sequential Architecture](images/stgnn.png)
+
  
-![ST-GNN Sequence Diagram](images/stgnn_sequence_diagram.png)
+![ST-GNN Sequence Flow](images/stgnn_flow.png)
 
 ---
 
+## 📊 Model Training
+
+## Extra Tree Classifier
+
+![ETC Architecture](images/ETC.png)
+
+## 📊 Hybrid Model Framework
+
+![ST-GNN & ETC Model](images/hybrid_model.png)
+
 ## 📈 Results
- 
-![Performance Metrics](images/performance_metrics_table.png)
  
 | Model | Accuracy | Precision | Recall | F1 |
 |---|---|---|---|---|
 | ST-GNN (standalone) | 85.26% | 0.73 | 0.85 | 0.78 |
 | ExtraTrees (standalone) | 92.31% | 0.88 | 0.85 | 0.90 |
 | **Hybrid Ensemble** | **96.46%** | **0.97** | **0.96** | **0.96** |
- 
-### Confusion Matrix
- 
-![Confusion Matrix](images/confusion_matrix.png)
- 
-### Feature Importance
- 
-![Feature Importance](images/feature_importance.png)
 
 -----
 
