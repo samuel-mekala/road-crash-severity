@@ -1,0 +1,29 @@
+# Python virtual environment & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Data files (Download UK_Accident.csv separately)
+data/
+*.csv
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor settings
+.vscode/
+.idea/
+
+# Flask & temporary logs
+*.log
+scratch/

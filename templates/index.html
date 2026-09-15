@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road Crash Injury Severity Prediction | ST-GNN & ETC Ensemble</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="bg-light">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="/">
+                <i class="fa-solid fa-car-burst text-danger me-2"></i>QGen Atlas / Road Crash Severity Predictor
+            </a>
+            <span class="navbar-text text-white-50 fs-6">
+                VIT-AP Senior Design Project · ST-GNN + ETC Hybrid Model
+            </span>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container py-4">
+        <!-- Header Banner -->
+        <div class="card border-0 shadow-sm mb-4 header-card">
+            <div class="card-body p-4 text-white">
+                <div class="row align-items-center">
+                    <div class="col-lg-8">
+                        <h2 class="fw-bold mb-2">🚗 Road Crash Injury Severity Prediction</h2>
+                        <p class="lead mb-0">Predict crash severity (Slight, Serious, Fatal) using Spatio-Temporal Graph Neural Networks & ExtraTrees Classifier to optimize emergency medical response.</p>
+                    </div>
+                    <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                        <span class="badge bg-success fs-6 p-2 px-3 shadow-sm mb-1">
+                            <i class="fa-solid fa-circle-check me-1"></i> 96.46% Accuracy Model
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i> {{ error }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
+
+        <div class="row g-4">
+            <!-- Left Column: Input Form -->
+            <div class="col-lg-7">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3 border-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="fw-bold mb-0 text-dark">
+                                <i class="fa-solid fa-sliders text-primary me-2"></i>Incident Parameters Input
+                            </h5>
+                            <!-- Sample Presets -->
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadPreset('highway')">Highway Crash</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadPreset('urban')">Urban Junction</button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="loadPreset('rural')">Minor Rural</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-4">
+                        <form action="/predict" method="POST" id="crashForm">
+                            <!-- Section 1: Crash Details & Scale -->
+                            <h6 class="text-uppercase text-muted fw-bold small mb-3">1. Crash Scale & Mechanics</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Number of Vehicles</label>
+                                    <input type="number" class="form-control" name="number_of_vehicles" id="number_of_vehicles" value="{{ input_data.number_of_vehicles if input_data else 2 }}" min="1" max="20" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Number of Casualties</label>
+                                    <input type="number" class="form-control" name="number_of_casualties" id="number_of_casualties" value="{{ input_data.number_of_casualties if input_data else 1 }}" min="0" max="30" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Speed Limit (mph)</label>
+                                    <select class="form-select" name="speed_limit" id="speed_limit" required>
+                                        {% for s in [20, 30, 40, 50, 60, 70] %}
+                                        <option value="{{ s }}" {% if input_data and input_data.speed_limit|int == s %}selected{% elif not input_data and s == 30 %}selected{% endif %}>{{ s }} mph</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Spatial & Temporal Features -->
+                            <h6 class="text-uppercase text-muted fw-bold small mb-3">2. Spatial & Temporal Attributes</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Latitude</label>
+                                    <input type="number" step="0.0001" class="form-control" name="latitude" id="latitude" value="{{ input_data.latitude if input_data else 51.5074 }}" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Longitude</label>
+                                    <input type="number" step="0.0001" class="form-control" name="longitude" id="longitude" value="{{ input_data.longitude if input_data else -0.1278 }}" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">1st Road No.</label>
+                                    <input type="number" class="form-control" name="road_number" id="road_number" value="{{ input_data.road_number if input_data else 10 }}" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Day of Week</label>
+                                    <select class="form-select" name="day_of_week" id="day_of_week" required>
+                                        <option value="1" {% if input_data and input_data.day_of_week|int == 1 %}selected{% endif %}>Sunday</option>
+                                        <option value="2" {% if input_data and input_data.day_of_week|int == 2 %}selected{% endif %}>Monday</option>
+                                        <option value="3" {% if input_data and input_data.day_of_week|int == 3 %}selected{% endif %}>Tuesday</option>
+                                        <option value="4" {% if input_data and input_data.day_of_week|int == 4 %}selected{% endif %}>Wednesday</option>
+                                        <option value="5" {% if input_data and input_data.day_of_week|int == 5 %}selected{% endif %}>Thursday</option>
+                                        <option value="6" {% if input_data and input_data.day_of_week|int == 6 %}selected{% endif %}>Friday</option>
+                                        <option value="7" {% if input_data and input_data.day_of_week|int == 7 %}selected{% endif %}>Saturday</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Section 3: Environment & Road Conditions -->
+                            <h6 class="text-uppercase text-muted fw-bold small mb-3">3. Environmental & Road Conditions</h6>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Weather Conditions</label>
+                                    <select class="form-select" name="weather_conditions" id="weather_conditions" required>
+                                        {% for code, label in mappings.Weather_Conditions.items() %}
+                                        <option value="{{ code }}" {% if input_data and input_data.weather_conditions|int == code %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Light Conditions</label>
+                                    <select class="form-select" name="light_conditions" id="light_conditions" required>
+                                        {% for code, label in mappings.Light_Conditions.items() %}
+                                        <option value="{{ code }}" {% if input_data and input_data.light_conditions|int == code %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Road Surface Conditions</label>
+                                    <select class="form-select" name="road_surface_conditions" id="road_surface_conditions" required>
+                                        {% for code, label in mappings.Road_Surface_Conditions.items() %}
+                                        <option value="{{ code }}" {% if input_data and input_data.road_surface_conditions|int == code %}selected{% endif %}>{{ label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Urban or Rural Area</label>
+                                    <select class="form-select" name="urban_or_rural_area" id="urban_or_rural_area" required>
+                                        <option value="1" {% if input_data and input_data.urban_or_rural_area|int == 1 %}selected{% endif %}>Urban Area</option>
+                                        <option value="2" {% if input_data and input_data.urban_or_rural_area|int == 2 %}selected{% endif %}>Rural Area</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">
+                                <i class="fa-solid fa-chart-line me-2"></i>Predict Crash Severity & Generate Protocol
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Prediction Results & Protocol -->
+            <div class="col-lg-5">
+                {% if result %}
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white py-3 border-0">
+                        <h5 class="fw-bold mb-0 text-dark">
+                            <i class="fa-solid fa-square-poll-vertical text-success me-2"></i>Prediction Assessment
+                        </h5>
+                    </div>
+                    <div class="card-body p-4 text-center">
+                        <!-- Severity Badge -->
+                        <div class="mb-3">
+                            {% if result.severity_label == 'Fatal' %}
+                            <span class="badge bg-danger p-3 fs-4 shadow rounded-pill w-100">
+                                <i class="fa-solid fa-skull-crossbones me-2"></i>FATAL SEVERITY RISK
+                            </span>
+                            {% elif result.severity_label == 'Serious' %}
+                            <span class="badge bg-warning text-dark p-3 fs-4 shadow rounded-pill w-100">
+                                <i class="fa-solid fa-triangle-exclamation me-2"></i>SERIOUS INJURY RISK
+                            </span>
+                            {% else %}
+                            <span class="badge bg-success p-3 fs-4 shadow rounded-pill w-100">
+                                <i class="fa-solid fa-shield-halved me-2"></i>SLIGHT / MINOR SEVERITY
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Risk Metric Score -->
+                        <div class="p-3 bg-light rounded-3 mb-4 border">
+                            <div class="text-uppercase text-muted small fw-bold">Overall Crash Risk Score</div>
+                            <div class="display-5 fw-bold text-dark my-1">{{ result.risk_score }}%</div>
+                            <small class="text-muted">Calculated using ST-GNN + ETC Ensemble & Spatial Context</small>
+                        </div>
+
+                        <!-- Class Probabilities -->
+                        <h6 class="text-start fw-bold text-muted small text-uppercase mb-3">Model Confidence Breakdown</h6>
+                        <div class="mb-2 text-start">
+                            <div class="d-flex justify-content-between small fw-semibold">
+                                <span>Slight Injury</span>
+                                <span>{{ result.probabilities.Slight }}%</span>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-success" style="width: {{ result.probabilities.Slight }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-2 text-start">
+                            <div class="d-flex justify-content-between small fw-semibold">
+                                <span>Serious Injury</span>
+                                <span>{{ result.probabilities.Serious }}%</span>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-warning" style="width: {{ result.probabilities.Serious }}%"></div>
+                            </div>
+                        </div>
+                        <div class="mb-4 text-start">
+                            <div class="d-flex justify-content-between small fw-semibold">
+                                <span>Fatal Severity</span>
+                                <span>{{ result.probabilities.Fatal }}%</span>
+                            </div>
+                            <div class="progress" style="height: 10px;">
+                                <div class="progress-bar bg-danger" style="width: {{ result.probabilities.Fatal }}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Sub-Model Predictions -->
+                        <div class="row g-2 text-start small">
+                            <div class="col-6">
+                                <div class="p-2 border rounded bg-white">
+                                    <span class="text-muted d-block">ExtraTrees Model:</span>
+                                    <strong class="text-primary">{{ result.etc_prediction }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 border rounded bg-white">
+                                    <span class="text-muted d-block">ST-GNN Model:</span>
+                                    <strong class="text-primary">{{ result.stgnn_prediction }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Emergency Protocol Card -->
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3 border-0">
+                        <h5 class="fw-bold mb-0 text-dark">
+                            <i class="fa-solid fa-truck-medical text-danger me-2"></i>Emergency Response Protocol
+                        </h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <ul class="list-group list-group-flush border-0">
+                            {% for rec in result.recommendations %}
+                            <li class="list-group-item bg-transparent border-0 px-0 py-2">
+                                <div class="d-flex align-items-start">
+                                    <div class="me-2 fs-5">⚡</div>
+                                    <div>{{ rec | safe }}</div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% else %}
+                <div class="card border-0 shadow-sm text-center p-5">
+                    <div class="card-body">
+                        <i class="fa-solid fa-truck-ambulance text-muted display-1 mb-3"></i>
+                        <h5 class="fw-bold text-dark">Ready for Crash Assessment</h5>
+                        <p class="text-muted">Fill out the crash parameters on the left or select a sample preset to generate real-time severity predictions and emergency protocols.</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+    <script>
+        function loadPreset(type) {
+            if (type === 'highway') {
+                document.getElementById('number_of_vehicles').value = 4;
+                document.getElementById('number_of_casualties').value = 5;
+                document.getElementById('speed_limit').value = 70;
+                document.getElementById('urban_or_rural_area').value = 2; // Rural highway
+                document.getElementById('weather_conditions').value = 2; // Raining
+                document.getElementById('road_surface_conditions').value = 2; // Wet
+                document.getElementById('light_conditions').value = 4; // Darkness no lighting
+            } else if (type === 'urban') {
+                document.getElementById('number_of_vehicles').value = 2;
+                document.getElementById('number_of_casualties').value = 1;
+                document.getElementById('speed_limit').value = 30;
+                document.getElementById('urban_or_rural_area').value = 1; // Urban
+                document.getElementById('weather_conditions').value = 1; // Fine
+                document.getElementById('road_surface_conditions').value = 1; // Dry
+                document.getElementById('light_conditions').value = 1; // Daylight
+            } else if (type === 'rural') {
+                document.getElementById('number_of_vehicles').value = 1;
+                document.getElementById('number_of_casualties').value = 1;
+                document.getElementById('speed_limit').value = 40;
+                document.getElementById('urban_or_rural_area').value = 2; // Rural
+                document.getElementById('weather_conditions').value = 7; // Fog
+                document.getElementById('road_surface_conditions').value = 4; // Frost
+                document.getElementById('light_conditions').value = 3; // Darkness
+            }
+        }
+    </script>
+</body>
+</html>
