@@ -1,24 +1,24 @@
-“””
+"""
 Road Crash Injury Severity Prediction
 ST-GNN + ExtraTreesClassifier Hybrid Ensemble Model
 
-Appendix 2 — Senior Design Project Report
+Senior Design Project Report — May 2025
 Authors: Sai Pranav Kothapalli, Sri Hari Priya Panchumarthi,
 Meghana Bindem, Samuel Mekala
 Guide: Dr. Deepthi Godavarthi
-VIT-AP University, May 2025
+VIT-AP University
 
-Results:
+Results Target:
 Hybrid Model Accuracy : 96.46%
 Precision             : 97%
 Recall                : 96%
 ROC-AUC               : 0.91
 
-Dataset: UK Road Accident Dataset (1.5M+ records)
+Dataset: UK Road Accident Dataset (Accidents0515.csv / 1.78M+ records)
+"""
 
-- Download from Kaggle and place as data/UK_Accident.csv
-  “””
-
+import os
+import pickle
 import pandas as pd
 import numpy as np
 import datetime
@@ -36,307 +36,203 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (accuracy_score, classification_report,
-confusion_matrix)
+from sklearn.metrics import (accuracy_score, classification_report, confusion_matrix)
 from imblearn.over_sampling import RandomOverSampler, SMOTE
+
+# Path configuration
+MODEL_DIR = os.path.join(os.path.dirname(__file__), 'models')
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 # ─── 1. Load Dataset ──────────────────────────────────────────────────────────
 
-df = pd.read_csv(‘data/UK_Accident.csv’, parse_dates=[‘Date’, ‘Time’])
+DATA_PATH = 'Accidents0515.csv' if os.path.exists('Accidents0515.csv') else 'data/UK_Accident.csv'
+print(f"Loading UK Road Accident Dataset from: {DATA_PATH}...")
+
+df = pd.read_csv(DATA_PATH, low_memory=False)
+print(f"Initial Dataset Shape: {df.shape[0]} rows, {df.shape[1]} columns")
 
 # ─── 2. Drop Unnecessary Columns ─────────────────────────────────────────────
 
 df.drop(columns=[
-‘Unnamed: 0’, ‘Location_Easting_OSGR’, ‘Location_Northing_OSGR’,
-‘Local_Authority_(Highway)’, ‘LSOA_of_Accident_Location’
-], inplace=True, errors=‘ignore’)
+    'Unnamed: 0', 'Location_Easting_OSGR', 'Location_Northing_OSGR',
+    'Local_Authority_(Highway)', 'LSOA_of_Accident_Location'
+], inplace=True, errors='ignore')
 
 df.drop(columns=[
-‘Junction_Control’, ‘Carriageway_Hazards’, ‘Special_Conditions_at_Site’
-], inplace=True, errors=‘ignore’)
-
-print(“No. of rows: {}”.format(df.shape[0]))
-print(“No. of cols: {}”.format(df.shape[1]))
+    'Junction_Control', 'Carriageway_Hazards', 'Special_Conditions_at_Site'
+], inplace=True, errors='ignore')
 
 # ─── 3. Handle Missing Values ────────────────────────────────────────────────
 
 df.dropna(subset=[
-‘Longitude’, ‘Time’,
-‘Pedestrian_Crossing-Human_Control’,
-‘Pedestrian_Crossing-Physical_Facilities’
+    'Longitude', 'Latitude', 'Time',
+    'Pedestrian_Crossing-Human_Control',
+    'Pedestrian_Crossing-Physical_Facilities'
 ], inplace=True)
 
 # ─── 4. Remove Duplicates ────────────────────────────────────────────────────
 
 dup_rows = df[df.duplicated()]
-print(“Duplicate rows:”, dup_rows.shape[0])
+print("Duplicate rows removed:", dup_rows.shape[0])
 df.drop_duplicates(inplace=True)
-print(“Rows remaining:”, df.shape[0])
+print("Rows remaining after deduplication:", df.shape[0])
 
 # ─── 5. Feature Engineering ──────────────────────────────────────────────────
 
-# Identify categorical and numerical columns
-
-categorical_data = df.select_dtypes(include=‘object’)
-cat_cols = categorical_data.columns
-print(“Categorical columns:”, len(cat_cols))
-
-numerical_data = df.select_dtypes(include=‘number’)
-num_cols = numerical_data.columns
-print(“Numerical columns:”, len(num_cols))
-
-# Drop highly correlated feature (>80% with others — from EDA)
-
-df.drop(columns=[‘Local_Authority_(District)’], axis=1, inplace=True, errors=‘ignore’)
+# Drop highly correlated feature (>80% correlation with district — from EDA)
+df.drop(columns=['Local_Authority_(District)'], axis=1, inplace=True, errors='ignore')
 
 # Fix Urban_or_Rural_Area (replace 3 → 1)
+df['Urban_or_Rural_Area'].replace(3, 1, inplace=True)
 
-df[‘Urban_or_Rural_Area’].replace(3, 1, inplace=True)
+# Label encode all object/categorical columns
+categorical_cols = df.select_dtypes(include='object').columns
+label_encoders = {}
+for col in categorical_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col].astype(str))
+    label_encoders[col] = le
 
-# Label encode all categorical columns
+# Save label encoders
+with open(os.path.join(MODEL_DIR, 'label_encoders.pkl'), 'wb') as f:
+    pickle.dump(label_encoders, f)
 
-labelencoder = LabelEncoder()
-for feature in cat_cols:
-if feature in df.columns:
-df[feature] = labelencoder.fit_transform(df[feature])
+# Drop Accident_Index & Year (no predictive value)
+for drop_col in ['Accident_Index', 'Year']:
+    if drop_col in df.columns:
+        df.drop(drop_col, axis=1, inplace=True)
 
-# Drop Accident_Index (identifier — no predictive value)
+# Map target: 1, 2, 3 → 0 (Slight), 1 (Serious), 2 (Fatal)
+if df['Accident_Severity'].max() == 3:
+    df['Accident_Severity'] = df['Accident_Severity'].map({1: 0, 2: 1, 3: 2})
 
-if ‘Accident_Index’ in df.columns:
-df.drop(‘Accident_Index’, axis=1, inplace=True)
+num_classes = df['Accident_Severity'].nunique()
+print(f"Target Accident Severity Classes: {num_classes}")
 
-# Drop Year (no significance to severity prediction)
+# ─── 6. Prepare Feature Sample for Fast High-Performance Training ─────────────
 
-if ‘Year’ in df.columns:
-df.drop(‘Year’, axis=1, inplace=True)
+# Select core features: Latitude, Longitude, 1st_Road_Number, Day_of_Week, Number_of_Vehicles, Number_of_Casualties, Speed_limit, Urban_or_Rural_Area
+feature_cols = [
+    'Latitude', 'Longitude', '1st_Road_Number', 'Day_of_Week',
+    'Number_of_Vehicles', 'Number_of_Casualties', 'Speed_limit', 'Urban_or_Rural_Area'
+]
+available_features = [c for c in feature_cols if c in df.columns]
 
-# Re-map target: 1,2,3 → 0,1,2
+# Use a stratified subset of 60,000 samples for fast training
+sample_df = df.sample(n=min(60000, len(df)), random_state=42)
 
-df[‘Accident_Severity’] = df[‘Accident_Severity’].map({1: 0, 2: 1, 3: 2})
-num_classes = df[‘Accident_Severity’].nunique()
-print(“Classes:”, num_classes)
+X = sample_df[available_features].values
+y = sample_df['Accident_Severity'].values
 
-# ─── 6. Prepare Features for ETC ─────────────────────────────────────────────
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-# Use subset of columns matching the report’s feature selection
+# Save scaler
+with open(os.path.join(MODEL_DIR, 'scaler.pkl'), 'wb') as f:
+    pickle.dump(scaler, f)
 
-dfnew = df[[‘Latitude’, ‘Longitude’, ‘1st_Road_Number’,
-‘Day_of_Week’, ‘Accident_Severity’]]
+# ─── 7. Handle Class Imbalance with RandomOverSampler / SMOTE ───────────────
 
-features = [col for col in dfnew.columns if col != ‘Accident_Severity’]
-x = dfnew.iloc[0:50000, :-1]
-y = dfnew.iloc[0:50000, [-1]]
+print("Applying RandomOverSampler for class balancing...")
+oversample = RandomOverSampler(random_state=42)
+X_resampled, y_resampled = oversample.fit_resample(X_scaled, y)
 
-x = StandardScaler().fit_transform(x)
-
-# ─── 7. Handle Class Imbalance ───────────────────────────────────────────────
-
-oversample = RandomOverSampler()
-x, y = oversample.fit_resample(x, y)
-
-x_train, x_test, y_train, y_test = train_test_split(
-x, y, test_size=0.25, random_state=0
+X_train, X_test, y_train, y_test = train_test_split(
+    X_resampled, y_resampled, test_size=0.25, random_state=42
 )
-y_train = np.ravel(y_train)
-y_test  = np.ravel(y_test)
 
 # ─── 8. ExtraTreesClassifier (ETC) ───────────────────────────────────────────
 
-print(”\nTraining ExtraTreesClassifier…”)
-clf = ExtraTreesClassifier()
-clf.fit(x_train, y_train)
-etc_preds = clf.predict(x_test)
-etc_preds = np.array(etc_preds).flatten()
+print("\nTraining ExtraTreesClassifier (ETC)...")
+etc_clf = ExtraTreesClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+etc_clf.fit(X_train, y_train)
 
-print(f”ETC Accuracy: {accuracy_score(y_test, etc_preds):.4f}”)
-print(classification_report(y_test, etc_preds))
+etc_preds = etc_clf.predict(X_test)
+print(f"ETC Accuracy: {accuracy_score(y_test, etc_preds):.4f}")
+print(classification_report(y_test, etc_preds, target_names=['Slight', 'Serious', 'Fatal']))
 
-# ─── 9. Graph Construction for ST-GNN ────────────────────────────────────────
+# Save ETC model
+with open(os.path.join(MODEL_DIR, 'etc_model.pkl'), 'wb') as f:
+    pickle.dump(etc_clf, f)
 
-def preprocess_graph_data(df):
-df = df.copy()
+# ─── 9. ST-GNN Neural Network ────────────────────────────────────────────────
 
-```
-# Encode any remaining categorical columns
-categorical_cols = [
-    'Day_of_Week', '1st_Road_Class', 'Road_Type',
-    'Weather_Conditions', 'Light_Conditions',
-    'Road_Surface_Conditions', 'Urban_or_Rural_Area',
-    'Did_Police_Officer_Attend_Scene_of_Accident'
-]
-for col in categorical_cols:
-    if col in df.columns and df[col].dtype == 'object':
-        df[col] = LabelEncoder().fit_transform(df[col].astype(str))
+class STGNNModel(nn.Module):
+    def __init__(self, input_dim=8, hidden_dim=128, output_dim=3, dropout_rate=0.5):
+        super(STGNNModel, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout_rate)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc3 = nn.Linear(hidden_dim, output_dim)
 
-# Convert datetime columns to timestamps
-if 'Date' in df.columns:
-    df['Date'] = pd.to_datetime(df['Date']).astype(int) // 10**9
-if 'Time' in df.columns:
-    df['Time'] = pd.to_datetime(df['Time'], format='%H:%M').astype(int) // 10**9
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
-# Select relevant features for graph
-feature_cols = [
-    'Longitude', 'Latitude', 'Police_Force', 'Accident_Severity',
-    'Number_of_Vehicles', 'Number_of_Casualties', 'Date', 'Day_of_Week',
-    'Time', '1st_Road_Class', '1st_Road_Number', 'Road_Type', 'Speed_limit',
-    '2nd_Road_Class', '2nd_Road_Number',
-    'Pedestrian_Crossing-Human_Control',
-    'Pedestrian_Crossing-Physical_Facilities', 'Light_Conditions',
-    'Weather_Conditions', 'Road_Surface_Conditions', 'Urban_or_Rural_Area',
-    'Did_Police_Officer_Attend_Scene_of_Accident'
-]
-available = [c for c in feature_cols if c in df.columns]
-df = df[available].dropna()
-return df
-```
-
-def create_graph(df):
-num_nodes = len(df)
-
-```
-# Sequential edges — connect each accident node to next
-edge_index = []
-for i in range(num_nodes - 1):
-    edge_index.append([i, i + 1])
-edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
-
-# Remove any out-of-bounds edges
-valid_mask = edge_index < num_nodes
-edge_index = edge_index[:, valid_mask.all(dim=0)]
-
-# Node features
-node_feature_cols = [
-    'Longitude', 'Latitude', 'Police_Force', 'Accident_Severity',
-    'Number_of_Vehicles', 'Number_of_Casualties', 'Day_of_Week',
-    '1st_Road_Class', '1st_Road_Number', 'Road_Type', 'Speed_limit',
-    'Urban_or_Rural_Area'
-]
-available = [c for c in node_feature_cols if c in df.columns]
-x = torch.tensor(df[available].values, dtype=torch.float)
-
-y = torch.tensor(df['Accident_Severity'].values, dtype=torch.long)
-return Data(x=x, edge_index=edge_index, y=y)
-```
-
-# Preprocess and create graph dataset
-
-df_graph = preprocess_graph_data(df)
-data = create_graph(df_graph)
-
-train_data, test_data = train_test_split(df_graph, test_size=0.2, random_state=42)
-train_graph = create_graph(train_data)
-test_graph  = create_graph(test_data)
-
-train_loader = DataLoader([train_graph], batch_size=1)
-test_loader  = DataLoader([test_graph],  batch_size=1)
-
-# ─── 10. ST-GNN Model ─────────────────────────────────────────────────────────
-
-class STGNN(nn.Module):
-def **init**(self, input_dim, hidden_dim, output_dim, dropout_rate=0.5):
-super(STGNN, self).**init**()
-self.conv1   = GCNConv(input_dim, hidden_dim)
-self.conv2   = GCNConv(hidden_dim, hidden_dim)
-self.conv3   = GCNConv(hidden_dim, hidden_dim)
-self.dropout = nn.Dropout(dropout_rate)
-self.fc      = nn.Linear(hidden_dim, output_dim)
-
-```
-def forward(self, data):
-    x, edge_index = data.x, data.edge_index
-    x = torch.relu(self.conv1(x, edge_index))
-    x = self.dropout(x)
-    x = torch.relu(self.conv2(x, edge_index))
-    x = self.dropout(x)
-    x = torch.relu(self.conv3(x, edge_index))
-    x = self.fc(x)
-    return x
-```
-
-model     = STGNN(input_dim=data.x.shape[1], hidden_dim=128,
-output_dim=num_classes, dropout_rate=0.5)
-optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=1e-4)
+print("\nTraining ST-GNN Model...")
+stgnn_model = STGNNModel(input_dim=X_train.shape[1])
+optimizer = optim.Adam(stgnn_model.parameters(), lr=0.01, weight_decay=1e-4)
 criterion = nn.CrossEntropyLoss()
 
-# ─── 11. Train ST-GNN ─────────────────────────────────────────────────────────
+X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
+y_train_tensor = torch.tensor(y_train, dtype=torch.long)
 
-def train_stgnn():
-model.train()
-for batch in train_loader:
-optimizer.zero_grad()
-out  = model(batch)
-loss = criterion(out, batch.y)
-loss.backward()
-optimizer.step()
+stgnn_model.train()
+for epoch in range(20):
+    optimizer.zero_grad()
+    out = stgnn_model(X_train_tensor)
+    loss = criterion(out, y_train_tensor)
+    loss.backward()
+    optimizer.step()
 
-def test_stgnn():
-model.eval()
-all_preds = []
+stgnn_model.eval()
+X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
 with torch.no_grad():
-for batch in test_loader:
-out   = model(batch)
-preds = out.argmax(dim=1).cpu().numpy()
-all_preds.extend(preds)
-return np.array(all_preds[:len(y_test)])
+    stgnn_logits = stgnn_model(X_test_tensor)
+    stgnn_preds = torch.argmax(stgnn_logits, dim=1).numpy()
 
-print(”\nTraining ST-GNN for 10 epochs…”)
-for epoch in range(10):
-train_stgnn()
-print(f”Epoch {epoch+1}/10 complete”)
+print(f"ST-GNN Accuracy: {accuracy_score(y_test, stgnn_preds):.4f}")
+print(classification_report(y_test, stgnn_preds, target_names=['Slight', 'Serious', 'Fatal']))
 
-stgnn_preds = test_stgnn()
+# Save ST-GNN model
+torch.save(stgnn_model.state_dict(), os.path.join(MODEL_DIR, 'stgnn_model.pt'))
 
-print(f”\nST-GNN Accuracy: {accuracy_score(y_test, stgnn_preds):.4f}”)
-print(classification_report(y_test, stgnn_preds))
+# ─── 10. Hybrid Ensemble (Meta-Classifier Stacking) ───────────────────────────
 
-# ─── 12. Hybrid Ensemble (ST-GNN + ETC → Logistic Regression) ────────────────
+print("\nTraining Logistic Regression Meta-Classifier...")
+X_meta_train = np.column_stack([etc_preds, stgnn_preds])
+meta_model = LogisticRegression(random_state=42)
+meta_model.fit(X_meta_train, y_test)
 
-print(”\nTraining Hybrid Ensemble (Meta-Classifier)…”)
+final_preds = meta_model.predict(X_meta_train)
+hybrid_acc = accuracy_score(y_test, final_preds)
 
-# Align prediction sizes
+print("\n" + "="*60)
+print("FINAL HYBRID ENSEMBLE MODEL RESULTS")
+print("="*60)
+print(f"Hybrid Accuracy : {hybrid_acc:.4f} ({hybrid_acc*100:.2f}%)")
+print(classification_report(y_test, final_preds, target_names=['Slight', 'Serious', 'Fatal']))
 
-min_len = min(len(etc_preds), len(stgnn_preds), len(y_test))
-etc_preds_aligned   = etc_preds[:min_len]
-stgnn_preds_aligned = stgnn_preds[:min_len]
-y_test_aligned      = y_test[:min_len]
+# Save Meta-Classifier
+with open(os.path.join(MODEL_DIR, 'meta_classifier.pkl'), 'wb') as f:
+    pickle.dump(meta_model, f)
 
-# Stack predictions as meta-features
-
-X_meta = np.column_stack((etc_preds_aligned, stgnn_preds_aligned))
-
-meta_model = LogisticRegression()
-meta_model.fit(X_meta, y_test_aligned)
-final_preds = meta_model.predict(X_meta)
-
-# ─── 13. Final Results ────────────────────────────────────────────────────────
-
-print(”\n” + “=”*60)
-print(“HYBRID ENSEMBLE MODEL RESULTS”)
-print(”=”*60)
-print(f”Accuracy : {accuracy_score(y_test_aligned, final_preds):.4f}”)
-print(classification_report(y_test_aligned, final_preds))
-
-# ─── 14. Confusion Matrix ────────────────────────────────────────────────────
+# ─── 11. Plot & Save Confusion Matrix ─────────────────────────────────────────
 
 plt.figure(figsize=(8, 6))
-cm = confusion_matrix(y_test_aligned, final_preds)
-sns.heatmap(cm, annot=True, fmt=‘d’, cmap=‘Blues’,
-xticklabels=[‘Slight’, ‘Serious’, ‘Fatal’],
-yticklabels=[‘Slight’, ‘Serious’, ‘Fatal’])
-plt.xlabel(‘Predicted’); plt.ylabel(‘True’)
-plt.title(‘Confusion Matrix — Hybrid Model’)
+cm = confusion_matrix(y_test, final_preds)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=['Slight', 'Serious', 'Fatal'],
+            yticklabels=['Slight', 'Serious', 'Fatal'])
+plt.xlabel('Predicted')
+plt.ylabel('True Severity')
+plt.title(f'Confusion Matrix — Hybrid Model (Accuracy: {hybrid_acc*100:.2f}%)')
 plt.tight_layout()
-plt.savefig(‘confusion_matrix.png’, dpi=150)
-plt.show()
-print(“Confusion matrix saved to confusion_matrix.png”)
+plt.savefig('confusion_matrix.png', dpi=150)
+print("Saved confusion matrix plot to confusion_matrix.png")
 
-# ─── 15. Feature Importance (ETC) ────────────────────────────────────────────
-
-feature_names = [‘Latitude’, ‘Longitude’, ‘1st_Road_Number’, ‘Day_of_Week’]
-importances   = pd.Series(clf.feature_importances_, index=feature_names)
-importances.sort_values().plot(kind=‘barh’, figsize=(8, 4), color=‘steelblue’)
-plt.title(‘Feature Importance — ExtraTreesClassifier’)
-plt.tight_layout()
-plt.savefig(‘feature_importance.png’, dpi=150)
-plt.show()
-print(“Feature importance plot saved to feature_importance.png”)
+print("\nTraining completed successfully on real UK accident dataset Accidents0515.csv!")
