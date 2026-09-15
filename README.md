@@ -22,7 +22,46 @@ This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learn
 
 ---
 
-## 🏗️ System Architecture & Model Diagrams
+## 🏗️ System Architecture
+
+```
+                        UK Road Accident Dataset (1.5M+ records)
+                                      │
+                                      ▼
+                        ┌─────────────────────────────┐
+                        │     Data Preprocessing      │
+                        │  • Drop redundant features  │
+                        │  • Impute missing values    │
+                        │  • Label encode categoricals│
+                        │  • StandardScaler normalize │
+                        │  • SMOTE oversampling       │
+                        └────────────┬────────────────┘
+                                     │
+                            ┌────────┴────────┐
+                            ▼                 ▼
+                        ┌──────────┐    ┌──────────────────┐
+                        │   ETC    │    │    ST-GNN        │
+                        │ Extra    │    │ kNN graph →      │
+                        │ Trees    │    │ 3-layer GCN +    │
+                        │Classifier│    │ Dropout(0.5)     │
+                        └────┬─────┘    └──────┬───────────┘
+                             └────────┬─────────┘
+                                      ▼
+                           Logistic Regression Meta-Classifier
+                                      │
+                                      ▼
+                         Injury Severity Prediction: Slight / Serious / Fatal
+                                      │
+                                      ▼
+                        ┌─────────────────────────────┐
+                        │   Flask Web Dashboard &     │
+                        │  Emergency Protocol Engine  │
+                        └─────────────────────────────┘
+```
+
+---
+
+## 📊 Model Diagrams & Visual Flow
 
 ### ST-GNN Architecture & Flow
 ![ST-GNN Sequential Architecture](images/stgnn.png)
@@ -83,7 +122,7 @@ python3 train.py
 # 5. Launch the Flask Web Dashboard
 python3 app.py
 ```
-Open **`http://127.0.0.1:5000`** in your browser.
+Open **`http://127.0.0.1:5050`** in your browser.
 
 ---
 
@@ -101,7 +140,7 @@ python3 test_app.py
 1. Push your repository to GitHub:
    ```bash
    git add .
-   git commit -m "Restore architecture diagrams in README and deploy"
+   git commit -m "Include both system architecture diagram and image embeds"
    git push origin main
    ```
 2. Log in to [Render Dashboard](https://dashboard.render.com/).
