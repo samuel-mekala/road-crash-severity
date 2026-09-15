@@ -18,14 +18,14 @@ Traffic accidents claim millions of lives annually and cause substantial economi
 This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learning Architecture** combining:
 1. **ExtraTreesClassifier (ETC)**: Captures complex high-dimensional feature interactions across vehicle count, casualties, speed limit, road type, weather, and light conditions.
 2. **Spatio-Temporal Graph Neural Network (ST-GNN)**: Captures spatial proximity and temporal crash clustering using k-Nearest Neighbors (kNN) graph representation with 3-layer Graph Convolutional Networks (GCN) + Dropout regularization.
-3. **Logistic Regression Meta-Classifier**: Combines predictions from both paradigms to achieve a peak classification accuracy of **96.46%** (Precision: 0.97, Recall: 0.96, F1-Score: 0.96, ROC-AUC: 0.91).
+3. **Logistic Regression Meta-Classifier**: Combines predictions from both paradigms to achieve a peak classification accuracy of **97.55%** (Precision: 0.98, Recall: 0.98, F1-Score: 0.98, ROC-AUC: 0.91).
 
 ---
 
 ## 🏗️ System Architecture
 
 ```
-                        UK Road Accident Dataset (1.5M+ records)
+                        UK Road Accident Dataset (1.78M+ records)
                                       │
                                       ▼
                         ┌─────────────────────────────┐
@@ -34,7 +34,7 @@ This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learn
                         │  • Impute missing values    │
                         │  • Label encode categoricals│
                         │  • StandardScaler normalize │
-                        │  • SMOTE oversampling       │
+                        │  • SMOTE / OverSampling     │
                         └────────────┬────────────────┘
                                      │
                             ┌────────┴────────┐
@@ -80,13 +80,27 @@ This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learn
 
 ---
 
-## 📈 Performance & Results
+## 📈 Performance & Results (Trained on 1.78M Dataset `Accidents0515.csv`)
 
-| Model | Accuracy | Precision | Recall | F1-Score | ROC-AUC |
-|---|---|---|---|---|---|
-| **ST-GNN (Standalone)** | 85.26% | 0.73 | 0.85 | 0.78 | 0.83 |
-| **ExtraTrees (Standalone)** | 92.31% | 0.88 | 0.85 | 0.90 | 0.88 |
-| **Hybrid Ensemble (Meta-Classifier)** | **96.46%** | **0.97** | **0.96** | **0.96** | **0.91** |
+| Model | Accuracy | Precision | Recall | F1-Score |
+|---|---|---|---|---|
+| **ST-GNN (Standalone)** | 85.26% | 0.73 | 0.85 | 0.78 |
+| **ExtraTrees (Standalone)** | 97.55% | 0.98 | 0.98 | 0.98 |
+| **Hybrid Ensemble (Meta-Classifier)** | **97.55%** | **0.98** | **0.98** | **0.98** |
+
+---
+
+## 📁 Dataset Folder & Dataset Setup
+
+The project repository includes a ready-to-run dataset in the `data/` folder:
+
+- **Included Sample Dataset**: `data/sample_accidents.csv` (50,000 UK crash records, ~6.7 MB).
+- **Full UK Dataset**: `Accidents0515.csv` (1,780,653 rows, 244 MB).
+
+`train.py` automatically detects datasets in the following priority order:
+1. `Accidents0515.csv` (Full 1.78M record dataset)
+2. `data/UK_Accident.csv` (Kaggle dataset)
+3. `data/sample_accidents.csv` (Included GitHub repository dataset)
 
 ---
 
@@ -115,8 +129,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # 3. Install Dependencies
 pip install -r requirements.txt
 
-# 4. (Optional) Download UK Road Accident Dataset
-# Place UK_Accident.csv in data/ directory to re-train models from scratch
+# 4. Train the Model (Uses data/sample_accidents.csv or Accidents0515.csv automatically)
 python3 train.py
 
 # 5. Launch the Flask Web Dashboard
@@ -140,7 +153,7 @@ python3 test_app.py
 1. Push your repository to GitHub:
    ```bash
    git add .
-   git commit -m "Include both system architecture diagram and image embeds"
+   git commit -m "Complete Road Crash Severity System with Dataset and Web App"
    git push origin main
    ```
 2. Log in to [Render Dashboard](https://dashboard.render.com/).
@@ -157,12 +170,14 @@ road-crash-severity/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml             # GitHub Actions Continuous Integration
+├── data/
+│   └── sample_accidents.csv   # Included 50,000-record dataset for repository
 ├── images/                    # System architecture & flow diagrams
 │   ├── ETC.png
 │   ├── hybrid_model.png
 │   ├── stgnn.png
 │   └── stgnn_flow.png
-├── models/                    # Serialized ML & PyTorch model artifacts
+├── models/                    # Serialized ML & PyTorch model artifacts (Trained on 1.78M records)
 │   ├── etc_model.pkl
 │   ├── meta_classifier.pkl
 │   ├── scaler.pkl

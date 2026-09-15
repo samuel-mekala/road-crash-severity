@@ -14,7 +14,7 @@ Precision             : 97%
 Recall                : 96%
 ROC-AUC               : 0.91
 
-Dataset: UK Road Accident Dataset (Accidents0515.csv / 1.78M+ records)
+Dataset: UK Road Accident Dataset (Accidents0515.csv / data/sample_accidents.csv)
 """
 
 import os
@@ -45,7 +45,15 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 
 # ─── 1. Load Dataset ──────────────────────────────────────────────────────────
 
-DATA_PATH = 'Accidents0515.csv' if os.path.exists('Accidents0515.csv') else 'data/UK_Accident.csv'
+if os.path.exists('Accidents0515.csv'):
+    DATA_PATH = 'Accidents0515.csv'
+elif os.path.exists('data/UK_Accident.csv'):
+    DATA_PATH = 'data/UK_Accident.csv'
+elif os.path.exists('data/sample_accidents.csv'):
+    DATA_PATH = 'data/sample_accidents.csv'
+else:
+    raise FileNotFoundError("No dataset CSV found in project directory or data/ folder!")
+
 print(f"Loading UK Road Accident Dataset from: {DATA_PATH}...")
 
 df = pd.read_csv(DATA_PATH, low_memory=False)
@@ -79,13 +87,9 @@ print("Rows remaining after deduplication:", df.shape[0])
 
 # ─── 5. Feature Engineering ──────────────────────────────────────────────────
 
-# Drop highly correlated feature (>80% correlation with district — from EDA)
 df.drop(columns=['Local_Authority_(District)'], axis=1, inplace=True, errors='ignore')
+df['Urban_or_Rural_Area'] = df['Urban_or_Rural_Area'].replace(3, 1)
 
-# Fix Urban_or_Rural_Area (replace 3 → 1)
-df['Urban_or_Rural_Area'].replace(3, 1, inplace=True)
-
-# Label encode all object/categorical columns
 categorical_cols = df.select_dtypes(include='object').columns
 label_encoders = {}
 for col in categorical_cols:
@@ -93,33 +97,28 @@ for col in categorical_cols:
     df[col] = le.fit_transform(df[col].astype(str))
     label_encoders[col] = le
 
-# Save label encoders
 with open(os.path.join(MODEL_DIR, 'label_encoders.pkl'), 'wb') as f:
     pickle.dump(label_encoders, f)
 
-# Drop Accident_Index & Year (no predictive value)
 for drop_col in ['Accident_Index', 'Year']:
     if drop_col in df.columns:
         df.drop(drop_col, axis=1, inplace=True)
 
-# Map target: 1, 2, 3 → 0 (Slight), 1 (Serious), 2 (Fatal)
 if df['Accident_Severity'].max() == 3:
     df['Accident_Severity'] = df['Accident_Severity'].map({1: 0, 2: 1, 3: 2})
 
 num_classes = df['Accident_Severity'].nunique()
 print(f"Target Accident Severity Classes: {num_classes}")
 
-# ─── 6. Prepare Feature Sample for Fast High-Performance Training ─────────────
+# ─── 6. Prepare Feature Sample for Model Training ───────────────────────────
 
-# Select core features: Latitude, Longitude, 1st_Road_Number, Day_of_Week, Number_of_Vehicles, Number_of_Casualties, Speed_limit, Urban_or_Rural_Area
 feature_cols = [
     'Latitude', 'Longitude', '1st_Road_Number', 'Day_of_Week',
     'Number_of_Vehicles', 'Number_of_Casualties', 'Speed_limit', 'Urban_or_Rural_Area'
 ]
 available_features = [c for c in feature_cols if c in df.columns]
 
-# Use a stratified subset of 60,000 samples for fast training
-sample_df = df.sample(n=min(60000, len(df)), random_state=42)
+sample_df = df.sample(n=min(50000, len(df)), random_state=42)
 
 X = sample_df[available_features].values
 y = sample_df['Accident_Severity'].values
@@ -127,11 +126,10 @@ y = sample_df['Accident_Severity'].values
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# Save scaler
 with open(os.path.join(MODEL_DIR, 'scaler.pkl'), 'wb') as f:
     pickle.dump(scaler, f)
 
-# ─── 7. Handle Class Imbalance with RandomOverSampler / SMOTE ───────────────
+# ─── 7. Handle Class Imbalance ───────────────────────────────────────────────
 
 print("Applying RandomOverSampler for class balancing...")
 oversample = RandomOverSampler(random_state=42)
@@ -141,17 +139,16 @@ X_train, X_test, y_train, y_test = train_test_split(
     X_resampled, y_resampled, test_size=0.25, random_state=42
 )
 
-# ─── 8. ExtraTreesClassifier (ETC) ───────────────────────────────────────────
+# ─── 8. ExtraTreesClassifier (ETC - Optimized Depth <100MB Size) ────────────
 
 print("\nTraining ExtraTreesClassifier (ETC)...")
-etc_clf = ExtraTreesClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+etc_clf = ExtraTreesClassifier(n_estimators=50, max_depth=16, random_state=42, n_jobs=-1)
 etc_clf.fit(X_train, y_train)
 
 etc_preds = etc_clf.predict(X_test)
 print(f"ETC Accuracy: {accuracy_score(y_test, etc_preds):.4f}")
 print(classification_report(y_test, etc_preds, target_names=['Slight', 'Serious', 'Fatal']))
 
-# Save ETC model
 with open(os.path.join(MODEL_DIR, 'etc_model.pkl'), 'wb') as f:
     pickle.dump(etc_clf, f)
 
@@ -198,7 +195,6 @@ with torch.no_grad():
 print(f"ST-GNN Accuracy: {accuracy_score(y_test, stgnn_preds):.4f}")
 print(classification_report(y_test, stgnn_preds, target_names=['Slight', 'Serious', 'Fatal']))
 
-# Save ST-GNN model
 torch.save(stgnn_model.state_dict(), os.path.join(MODEL_DIR, 'stgnn_model.pt'))
 
 # ─── 10. Hybrid Ensemble (Meta-Classifier Stacking) ───────────────────────────
@@ -217,7 +213,6 @@ print("="*60)
 print(f"Hybrid Accuracy : {hybrid_acc:.4f} ({hybrid_acc*100:.2f}%)")
 print(classification_report(y_test, final_preds, target_names=['Slight', 'Serious', 'Fatal']))
 
-# Save Meta-Classifier
 with open(os.path.join(MODEL_DIR, 'meta_classifier.pkl'), 'wb') as f:
     pickle.dump(meta_model, f)
 
@@ -235,4 +230,4 @@ plt.tight_layout()
 plt.savefig('confusion_matrix.png', dpi=150)
 print("Saved confusion matrix plot to confusion_matrix.png")
 
-print("\nTraining completed successfully on real UK accident dataset Accidents0515.csv!")
+print(f"\nTraining completed successfully on dataset: {DATA_PATH}!")

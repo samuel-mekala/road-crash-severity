@@ -7,9 +7,10 @@ env/
 venv/
 ENV/
 
-# Data files (Download UK_Accident.csv separately)
-data/
-*.csv
+# Exclude large 244MB raw CSV file (GitHub 100MB file limit)
+Accidents0515.csv
+UK_Accident.csv
+!data/sample_accidents.csv
 
 # OS generated files
 .DS_Store
@@ -24,6 +25,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Flask & temporary logs
+# Temporary logs & artifacts
 *.log
 scratch/
