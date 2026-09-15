@@ -7,9 +7,12 @@ env/
 venv/
 ENV/
 
-# Exclude large 244MB raw CSV file (GitHub 100MB file limit)
+# Exclude uncompressed 244MB raw CSV file (GitHub 100MB file limit)
 Accidents0515.csv
 UK_Accident.csv
+
+# Include compressed 1.78M row raw dataset in data/
+!data/Accidents0515.csv.gz
 !data/sample_accidents.csv
 
 # OS generated files

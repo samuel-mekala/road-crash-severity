@@ -90,17 +90,14 @@ This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learn
 
 ---
 
-## 📁 Dataset Folder & Dataset Setup
+## 📁 Dataset & Full Raw Data Upload
 
-The project repository includes a ready-to-run dataset in the `data/` folder:
+The repository contains **100% of all 1,780,653 raw records** stored in `data/`:
 
-- **Included Sample Dataset**: `data/sample_accidents.csv` (50,000 UK crash records, ~6.7 MB).
-- **Full UK Dataset**: `Accidents0515.csv` (1,780,653 rows, 244 MB).
+- **Full Raw Dataset**: `data/Accidents0515.csv.gz` (1,780,653 raw records compressed to 54 MB to satisfy GitHub's 100 MB single file upload policy).
+- **Sample Dataset**: `data/sample_accidents.csv` (50,000 records).
 
-`train.py` automatically detects datasets in the following priority order:
-1. `Accidents0515.csv` (Full 1.78M record dataset)
-2. `data/UK_Accident.csv` (Kaggle dataset)
-3. `data/sample_accidents.csv` (Included GitHub repository dataset)
+`train.py` automatically detects and uncompresses `data/Accidents0515.csv.gz` on execution!
 
 ---
 
@@ -129,7 +126,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # 3. Install Dependencies
 pip install -r requirements.txt
 
-# 4. Train the Model (Uses data/sample_accidents.csv or Accidents0515.csv automatically)
+# 4. Train the Model (Automatically reads data/Accidents0515.csv.gz containing 1.78M records)
 python3 train.py
 
 # 5. Launch the Flask Web Dashboard
@@ -153,7 +150,7 @@ python3 test_app.py
 1. Push your repository to GitHub:
    ```bash
    git add .
-   git commit -m "Complete Road Crash Severity System with Dataset and Web App"
+   git commit -m "Complete Road Crash Severity System with Full 1.78M Raw Dataset"
    git push origin main
    ```
 2. Log in to [Render Dashboard](https://dashboard.render.com/).
@@ -171,7 +168,8 @@ road-crash-severity/
 │   └── workflows/
 │       └── ci.yml             # GitHub Actions Continuous Integration
 ├── data/
-│   └── sample_accidents.csv   # Included 50,000-record dataset for repository
+│   ├── Accidents0515.csv.gz   # Full 1,780,653 raw records (Compressed 54MB)
+│   └── sample_accidents.csv   # 50,000-record dataset
 ├── images/                    # System architecture & flow diagrams
 │   ├── ETC.png
 │   ├── hybrid_model.png
