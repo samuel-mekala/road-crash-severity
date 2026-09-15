@@ -22,38 +22,22 @@ This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learn
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ System Architecture & Model Diagrams
 
-```
-                             UK Road Accident Dataset (1.5M+ records)
-                                               │
-                                               ▼
-                                 ┌───────────────────────────┐
-                                 │    Data Preprocessing     │
-                                 │ • Label Encode Categories │
-                                 │ • Drop Redundant Features │
-                                 │ • StandardScaler Normalize│
-                                 │ • SMOTE Class Balancing   │
-                                 └─────────────┬─────────────┘
-                                               │
-                                     ┌─────────┴─────────┐
-                                     ▼                   ▼
-                                 ┌────────┐        ┌───────────┐
-                                 │  ETC   │        │  ST-GNN   │
-                                 │ Extra  │        │ kNN Graph │
-                                 │ Trees  │        │ 3-L GCN + │
-                                 │ Classifier      │ Dropout 0.5
-                                 └───┬────┘        └─────┬─────┘
-                                     └─────────┬─────────┘
-                                               ▼
-                                   Logistic Regression Meta-Classifier
-                                               │
-                                               ▼
-                                 ┌───────────────────────────┐
-                                 │  Flask Web Dashboard &    │
-                                 │  Emergency Response Engine│
-                                 └───────────────────────────┘
-```
+### ST-GNN Architecture & Flow
+![ST-GNN Sequential Architecture](images/stgnn.png)
+
+![ST-GNN Sequence Flow](images/stgnn_flow.png)
+
+---
+
+### ExtraTrees Classifier Architecture
+![ETC Architecture](images/ETC.png)
+
+---
+
+### Hybrid Model Framework (ST-GNN + ETC Meta-Classifier)
+![Hybrid Model Framework](images/hybrid_model.png)
 
 ---
 
@@ -117,7 +101,7 @@ python3 test_app.py
 1. Push your repository to GitHub:
    ```bash
    git add .
-   git commit -m "Complete Road Crash Injury Severity Prediction Web App & Deployment Setup"
+   git commit -m "Restore architecture diagrams in README and deploy"
    git push origin main
    ```
 2. Log in to [Render Dashboard](https://dashboard.render.com/).
@@ -134,6 +118,11 @@ road-crash-severity/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml             # GitHub Actions Continuous Integration
+├── images/                    # System architecture & flow diagrams
+│   ├── ETC.png
+│   ├── hybrid_model.png
+│   ├── stgnn.png
+│   └── stgnn_flow.png
 ├── models/                    # Serialized ML & PyTorch model artifacts
 │   ├── etc_model.pkl
 │   ├── meta_classifier.pkl
