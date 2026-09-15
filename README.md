@@ -90,12 +90,11 @@ This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learn
 
 ---
 
-## 📁 Dataset & Full Raw Data Upload
+## 📁 Full Raw Dataset Location
 
 The repository contains **100% of all 1,780,653 raw records** stored in `data/`:
 
 - **Full Raw Dataset**: `data/Accidents0515.csv.gz` (1,780,653 raw records compressed to 54 MB to satisfy GitHub's 100 MB single file upload policy).
-- **Sample Dataset**: `data/sample_accidents.csv` (50,000 records).
 
 `train.py` automatically detects and uncompresses `data/Accidents0515.csv.gz` on execution!
 
@@ -168,8 +167,7 @@ road-crash-severity/
 │   └── workflows/
 │       └── ci.yml             # GitHub Actions Continuous Integration
 ├── data/
-│   ├── Accidents0515.csv.gz   # Full 1,780,653 raw records (Compressed 54MB)
-│   └── sample_accidents.csv   # 50,000-record dataset
+│   └── Accidents0515.csv.gz   # Full 1,780,653 raw records (Compressed 54MB)
 ├── images/                    # System architecture & flow diagrams
 │   ├── ETC.png
 │   ├── hybrid_model.png
