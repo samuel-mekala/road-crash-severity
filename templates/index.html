@@ -13,7 +13,7 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold" href="/">
-                <i class="fa-solid fa-car-burst text-danger me-2"></i>QGen Atlas / Road Crash Severity Predictor
+                <i class="fa-solid fa-car-burst text-danger me-2"></i>Road Crash Severity Predictor
             </a>
             <span class="navbar-text text-white-50 fs-6">
                 VIT-AP Senior Design Project · ST-GNN + ETC Hybrid Model
@@ -71,17 +71,18 @@
                             <div class="row g-3 mb-4">
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Number of Vehicles</label>
-                                    <input type="number" class="form-control" name="number_of_vehicles" id="number_of_vehicles" value="{{ input_data.number_of_vehicles if input_data else 2 }}" min="1" max="20" required>
+                                    <input type="number" class="form-control" name="number_of_vehicles" id="number_of_vehicles" value="{{ input_data.number_of_vehicles if input_data else '' }}" placeholder="e.g. 2" min="1" max="20" required>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Number of Casualties</label>
-                                    <input type="number" class="form-control" name="number_of_casualties" id="number_of_casualties" value="{{ input_data.number_of_casualties if input_data else 1 }}" min="0" max="30" required>
+                                    <input type="number" class="form-control" name="number_of_casualties" id="number_of_casualties" value="{{ input_data.number_of_casualties if input_data else '' }}" placeholder="e.g. 1" min="0" max="30" required>
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label fw-semibold">Speed Limit (mph)</label>
                                     <select class="form-select" name="speed_limit" id="speed_limit" required>
+                                        <option value="" disabled {% if not input_data %}selected{% endif %}>Select Speed Limit</option>
                                         {% for s in [20, 30, 40, 50, 60, 70] %}
-                                        <option value="{{ s }}" {% if input_data and input_data.speed_limit|int == s %}selected{% elif not input_data and s == 30 %}selected{% endif %}>{{ s }} mph</option>
+                                        <option value="{{ s }}" {% if input_data and input_data.speed_limit|int == s %}selected{% endif %}>{{ s }} mph</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -92,19 +93,20 @@
                             <div class="row g-3 mb-4">
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Latitude</label>
-                                    <input type="number" step="0.0001" class="form-control" name="latitude" id="latitude" value="{{ input_data.latitude if input_data else 51.5074 }}" required>
+                                    <input type="number" step="0.0001" class="form-control" name="latitude" id="latitude" value="{{ input_data.latitude if input_data else '' }}" placeholder="e.g. 51.5074" required>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Longitude</label>
-                                    <input type="number" step="0.0001" class="form-control" name="longitude" id="longitude" value="{{ input_data.longitude if input_data else -0.1278 }}" required>
+                                    <input type="number" step="0.0001" class="form-control" name="longitude" id="longitude" value="{{ input_data.longitude if input_data else '' }}" placeholder="e.g. -0.1278" required>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">1st Road No.</label>
-                                    <input type="number" class="form-control" name="road_number" id="road_number" value="{{ input_data.road_number if input_data else 10 }}" required>
+                                    <input type="number" class="form-control" name="road_number" id="road_number" value="{{ input_data.road_number if input_data else '' }}" placeholder="e.g. 10" required>
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">Day of Week</label>
                                     <select class="form-select" name="day_of_week" id="day_of_week" required>
+                                        <option value="" disabled {% if not input_data %}selected{% endif %}>Select Day</option>
                                         <option value="1" {% if input_data and input_data.day_of_week|int == 1 %}selected{% endif %}>Sunday</option>
                                         <option value="2" {% if input_data and input_data.day_of_week|int == 2 %}selected{% endif %}>Monday</option>
                                         <option value="3" {% if input_data and input_data.day_of_week|int == 3 %}selected{% endif %}>Tuesday</option>
@@ -122,6 +124,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Weather Conditions</label>
                                     <select class="form-select" name="weather_conditions" id="weather_conditions" required>
+                                        <option value="" disabled {% if not input_data %}selected{% endif %}>Select Weather</option>
                                         {% for code, label in mappings.Weather_Conditions.items() %}
                                         <option value="{{ code }}" {% if input_data and input_data.weather_conditions|int == code %}selected{% endif %}>{{ label }}</option>
                                         {% endfor %}
@@ -130,6 +133,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Light Conditions</label>
                                     <select class="form-select" name="light_conditions" id="light_conditions" required>
+                                        <option value="" disabled {% if not input_data %}selected{% endif %}>Select Light Condition</option>
                                         {% for code, label in mappings.Light_Conditions.items() %}
                                         <option value="{{ code }}" {% if input_data and input_data.light_conditions|int == code %}selected{% endif %}>{{ label }}</option>
                                         {% endfor %}
@@ -138,6 +142,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Road Surface Conditions</label>
                                     <select class="form-select" name="road_surface_conditions" id="road_surface_conditions" required>
+                                        <option value="" disabled {% if not input_data %}selected{% endif %}>Select Surface Condition</option>
                                         {% for code, label in mappings.Road_Surface_Conditions.items() %}
                                         <option value="{{ code }}" {% if input_data and input_data.road_surface_conditions|int == code %}selected{% endif %}>{{ label }}</option>
                                         {% endfor %}
@@ -146,6 +151,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Urban or Rural Area</label>
                                     <select class="form-select" name="urban_or_rural_area" id="urban_or_rural_area" required>
+                                        <option value="" disabled {% if not input_data %}selected{% endif %}>Select Area Type</option>
                                         <option value="1" {% if input_data and input_data.urban_or_rural_area|int == 1 %}selected{% endif %}>Urban Area</option>
                                         <option value="2" {% if input_data and input_data.urban_or_rural_area|int == 2 %}selected{% endif %}>Rural Area</option>
                                     </select>
@@ -275,13 +281,17 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"></script>
     <script>
         function loadPreset(type) {
             if (type === 'highway') {
                 document.getElementById('number_of_vehicles').value = 4;
                 document.getElementById('number_of_casualties').value = 5;
                 document.getElementById('speed_limit').value = 70;
+                document.getElementById('latitude').value = 52.2053;
+                document.getElementById('longitude').value = -0.1218;
+                document.getElementById('road_number').value = 1;
+                document.getElementById('day_of_week').value = 6;
                 document.getElementById('urban_or_rural_area').value = 2; // Rural highway
                 document.getElementById('weather_conditions').value = 2; // Raining
                 document.getElementById('road_surface_conditions').value = 2; // Wet
@@ -290,6 +300,10 @@
                 document.getElementById('number_of_vehicles').value = 2;
                 document.getElementById('number_of_casualties').value = 1;
                 document.getElementById('speed_limit').value = 30;
+                document.getElementById('latitude').value = 51.5074;
+                document.getElementById('longitude').value = -0.1278;
+                document.getElementById('road_number').value = 10;
+                document.getElementById('day_of_week').value = 2;
                 document.getElementById('urban_or_rural_area').value = 1; // Urban
                 document.getElementById('weather_conditions').value = 1; // Fine
                 document.getElementById('road_surface_conditions').value = 1; // Dry
@@ -298,6 +312,10 @@
                 document.getElementById('number_of_vehicles').value = 1;
                 document.getElementById('number_of_casualties').value = 1;
                 document.getElementById('speed_limit').value = 40;
+                document.getElementById('latitude').value = 54.5973;
+                document.getElementById('longitude').value = -3.1883;
+                document.getElementById('road_number').value = 591;
+                document.getElementById('day_of_week').value = 7;
                 document.getElementById('urban_or_rural_area').value = 2; // Rural
                 document.getElementById('weather_conditions').value = 7; // Fog
                 document.getElementById('road_surface_conditions').value = 4; // Frost
