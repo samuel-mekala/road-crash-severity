@@ -4,10 +4,13 @@
 > **Authors:** Sri Hari Priya Panchumarthi, **Samuel Mekala**, Sai Pranav Kothapalli, Meghana Bindem  
 > **Guide:** Dr. Deepthi Godavarthi · School of Computer Science and Engineering (SCOPE), VIT-AP University  
 
+[![Live Web Application](https://img.shields.io/badge/Render-Live%20Web%20App-success?style=flat-square&logo=render)](https://road-crash-severity-1.onrender.com)
 [![Python](https://img.shields.io/badge/Python-3.10-blue?style=flat-square&logo=python)](https://python.org)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0-EE4C2C?style=flat-square&logo=pytorch)](https://pytorch.org)
 [![Flask](https://img.shields.io/badge/Flask-Web%20App-black?style=flat-square&logo=flask)](https://flask.palletsprojects.com)
 [![GitHub](https://img.shields.io/badge/GitHub-samuel--mekala%2Froad--crash--severity-181717?style=flat-square&logo=github)](https://github.com/samuel-mekala/road-crash-severity)
+
+👉 **Live Online Web Application:** **[https://road-crash-severity-1.onrender.com](https://road-crash-severity-1.onrender.com)**
 
 ---
 
@@ -90,6 +93,18 @@ This project implements a **Hybrid Machine Learning & Spatio-Temporal Deep Learn
 
 ---
 
+## 🌐 Live Web Application & Cloud Deployment
+
+The application is deployed live on Render cloud hosting and accessible globally:
+
+👉 **[https://road-crash-severity-1.onrender.com](https://road-crash-severity-1.onrender.com)**
+
+- **Framework**: Flask + Gunicorn WSGI
+- **Deployment Config**: `render.yaml` & `Procfile`
+- **Hosted Model Artifacts**: Pre-trained ST-GNN + ETC Meta-Classifier trained on 1.78M records.
+
+---
+
 ## 📁 Full Raw Dataset Location
 
 The repository contains **100% of all 1,780,653 raw records** stored in `data/`:
@@ -128,7 +143,7 @@ pip install -r requirements.txt
 # 4. Train the Model (Automatically reads data/Accidents0515.csv.gz containing 1.78M records)
 python3 train.py
 
-# 5. Launch the Flask Web Dashboard
+# 5. Launch the Flask Web Dashboard Locally
 python3 app.py
 ```
 Open **`http://127.0.0.1:5050`** in your browser.
@@ -140,22 +155,6 @@ Open **`http://127.0.0.1:5050`** in your browser.
 ```bash
 python3 test_app.py
 ```
-
----
-
-## 🌐 Deploying to Cloud Platforms (Render / Railway / Hugging Face)
-
-### Deploying to Render
-1. Push your repository to GitHub:
-   ```bash
-   git add .
-   git commit -m "Complete Road Crash Severity System with Full 1.78M Raw Dataset"
-   git push origin main
-   ```
-2. Log in to [Render Dashboard](https://dashboard.render.com/).
-3. Click **New +** → **Web Service** → Connect your GitHub repository `samuel-mekala/road-crash-severity`.
-4. Render will automatically detect `render.yaml` and `Procfile` (`web: gunicorn wsgi:app`).
-5. Click **Deploy Web Service**!
 
 ---
 
@@ -175,6 +174,7 @@ road-crash-severity/
 │   └── stgnn_flow.png
 ├── models/                    # Serialized ML & PyTorch model artifacts (Trained on 1.78M records)
 │   ├── etc_model.pkl
+│   ├── label_encoders.pkl
 │   ├── meta_classifier.pkl
 │   ├── scaler.pkl
 │   └── stgnn_model.pt
@@ -185,9 +185,11 @@ road-crash-severity/
 │   └── index.html             # Interactive Web Dashboard Template
 ├── analysis.py                # Dataset Analysis & Exploratory Data Analysis (EDA)
 ├── app.py                     # Flask Web Application Server
-├── predict.py                 # Real-time Inference & Emergency Recommendation Engine
+├── confusion_matrix.png       # Generated Confusion Matrix Plot
+├── predict.py                 # Inference & Emergency Recommendation Protocol Engine
 ├── train.py                   # Model Training Pipeline (ST-GNN + ETC + Meta-Classifier)
-├── test_app.py                # Automated Test Suite
+├── test_app.py                # Automated Test Suite (4/4 Passed)
+├── verify_e2e.py              # End-to-End Scenario Verification Script
 ├── wsgi.py                    # Gunicorn Production WSGI Entry Point
 ├── Procfile                   # Process file for Gunicorn execution
 ├── render.yaml                # Render Cloud Deployment Config
