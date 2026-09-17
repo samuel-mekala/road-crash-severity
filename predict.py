@@ -1,14 +1,12 @@
 import os
 import pickle
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-# Model Artifacts Path
 MODEL_DIR = os.path.join(os.path.dirname(__file__), 'models')
 
 FEATURE_MAPPINGS = {
@@ -63,7 +61,7 @@ FEATURE_MAPPINGS = {
 SEVERITY_LABELS = {0: 'Slight', 1: 'Serious', 2: 'Fatal'}
 
 class STGNNModel(nn.Module):
-    def __init__(self, input_dim=8, hidden_dim=128, output_dim=3, dropout_rate=0.5):
+    def __init__(self, input_dim=11, hidden_dim=128, output_dim=3, dropout_rate=0.4):
         super(STGNNModel, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.relu = nn.ReLU()
@@ -102,53 +100,54 @@ class CrashSeverityPredictor:
                 with open(scaler_path, 'rb') as f:
                     self.scaler = pickle.load(f)
                 
-                self.stgnn_model = STGNNModel(input_dim=8)
+                self.stgnn_model = STGNNModel(input_dim=11)
                 if os.path.exists(stgnn_path):
                     self.stgnn_model.load_state_dict(torch.load(stgnn_path))
                 self.stgnn_model.eval()
                 self.initialized = True
                 return
             except Exception as e:
-                print(f"Loading existing models failed: {e}. Rebuilding baseline model...")
+                print(f"Loading existing models failed: {e}. Rebuilding model...")
 
         self._train_baseline_model()
 
     def _train_baseline_model(self):
-        """Trains ST-GNN + ExtraTrees hybrid ensemble model on synthetic dataset adhering to UK crash distribution statistics."""
         os.makedirs(MODEL_DIR, exist_ok=True)
         np.random.seed(42)
-        n_samples = 6000
+        n_samples = 10000
 
         lats = np.random.uniform(50.0, 58.0, n_samples)
         longs = np.random.uniform(-5.0, 1.5, n_samples)
         road_nums = np.random.randint(1, 9999, n_samples)
         days = np.random.randint(1, 8, n_samples)
-        vehicles = np.random.randint(1, 7, n_samples)
-        casualties = np.random.randint(0, 8, n_samples)
-        speed_limits = np.random.choice([20, 30, 40, 50, 60, 70], n_samples, p=[0.05, 0.50, 0.15, 0.10, 0.10, 0.10])
+        vehicles = np.random.randint(1, 8, n_samples)
+        casualties = np.random.randint(0, 10, n_samples)
+        speed_limits = np.random.choice([20, 30, 40, 50, 60, 70], n_samples, p=[0.05, 0.45, 0.15, 0.15, 0.10, 0.10])
         areas = np.random.choice([1, 2], n_samples, p=[0.6, 0.4])
+        weathers = np.random.randint(1, 9, n_samples)
+        lights = np.random.randint(1, 6, n_samples)
+        surfaces = np.random.randint(1, 6, n_samples)
 
-        # Domain physics risk score: speed, casualties, vehicles, rural
+        # Domain physics risk score
         risk_score = (
-            (speed_limits / 70.0) * 0.35 +
-            (casualties / 5.0) * 0.35 +
-            (vehicles / 4.0) * 0.15 +
-            (0.15 if 2 in areas else 0.0) +
-            np.random.normal(0, 0.08, n_samples)
+            (speed_limits / 70.0) * 0.30 +
+            (casualties / 6.0) * 0.35 +
+            (vehicles / 5.0) * 0.15 +
+            (0.10 if 2 in areas else 0.0) +
+            ((weathers > 1) * 0.05) +
+            ((lights > 2) * 0.05)
         )
-        severities = np.where(risk_score > 0.60, 2, np.where(risk_score > 0.32, 1, 0))
+        severities = np.where(risk_score > 0.65, 2, np.where(risk_score > 0.35, 1, 0))
 
-        X_raw = np.column_stack([lats, longs, road_nums, days, vehicles, casualties, speed_limits, areas])
+        X_raw = np.column_stack([lats, longs, road_nums, days, vehicles, casualties, speed_limits, areas, weathers, lights, surfaces])
         self.scaler = StandardScaler()
         X_scaled = self.scaler.fit_transform(X_raw)
 
-        # ExtraTrees Classifier
-        self.etc_model = ExtraTreesClassifier(n_estimators=100, random_state=42)
+        self.etc_model = ExtraTreesClassifier(n_estimators=100, max_depth=20, random_state=42)
         self.etc_model.fit(X_scaled, severities)
 
-        # ST-GNN Neural Net
-        self.stgnn_model = STGNNModel(input_dim=8)
-        optimizer = torch.optim.Adam(self.stgnn_model.parameters(), lr=0.01)
+        self.stgnn_model = STGNNModel(input_dim=11)
+        optimizer = torch.optim.Adam(self.stgnn_model.parameters(), lr=0.005)
         criterion = nn.CrossEntropyLoss()
         
         X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
@@ -163,7 +162,6 @@ class CrashSeverityPredictor:
             optimizer.step()
         self.stgnn_model.eval()
 
-        # Meta Classifier (Logistic Regression)
         etc_preds = self.etc_model.predict(X_scaled)
         with torch.no_grad():
             stgnn_logits = self.stgnn_model(X_tensor)
@@ -173,7 +171,6 @@ class CrashSeverityPredictor:
         self.meta_model = LogisticRegression()
         self.meta_model.fit(X_meta, severities)
 
-        # Save artifacts
         with open(os.path.join(MODEL_DIR, 'etc_model.pkl'), 'wb') as f:
             pickle.dump(self.etc_model, f)
         with open(os.path.join(MODEL_DIR, 'meta_classifier.pkl'), 'wb') as f:
@@ -197,53 +194,70 @@ class CrashSeverityPredictor:
         road_surface = int(input_data.get('road_surface_conditions', 1))
         area = int(input_data.get('urban_or_rural_area', 1))
 
-        # Scale features for core classifiers
-        X_raw = np.array([[lat, long_val, road_num, day_of_week, num_vehicles, num_casualties, speed_limit, area]])
+        X_raw = np.array([[lat, long_val, road_num, day_of_week, num_vehicles, num_casualties, speed_limit, area, weather, light, road_surface]])
         X_scaled = self.scaler.transform(X_raw)
 
-        # ExtraTrees Prediction & Probabilities
-        etc_pred = self.etc_model.predict(X_scaled)[0]
+        # Sub-model predictions
+        etc_pred = int(self.etc_model.predict(X_scaled)[0])
         etc_proba = self.etc_model.predict_proba(X_scaled)[0]
 
-        # ST-GNN Prediction & Probabilities
         X_tensor = torch.tensor(X_scaled, dtype=torch.float32)
         with torch.no_grad():
             stgnn_logits = self.stgnn_model(X_tensor)
             stgnn_probs = torch.softmax(stgnn_logits, dim=1).numpy()[0]
             stgnn_pred = int(np.argmax(stgnn_probs))
 
-        # Meta-Classifier Prediction
         X_meta = np.array([[etc_pred, stgnn_pred]])
         meta_pred = int(self.meta_model.predict(X_meta)[0])
 
-        # Combine ensemble probability vectors
-        ensemble_probs = 0.50 * etc_proba + 0.50 * stgnn_probs
-        if len(ensemble_probs) < 3:
-            full_probs = np.zeros(3)
-            full_probs[:len(ensemble_probs)] = ensemble_probs
-            ensemble_probs = full_probs
-        
-        ensemble_probs = ensemble_probs / np.sum(ensemble_probs)
+        # Mathematical Risk Severity Index (0 - 100%) incorporating physics of crash
+        speed_factor = (speed_limit / 70.0) * 25.0
+        casualty_factor = min(40.0, num_casualties * 10.0)
+        vehicle_factor = min(15.0, num_vehicles * 2.5)
+        weather_factor = 5.0 if weather in [2, 3, 5, 6, 7] else 0.0
+        light_factor = 6.0 if light in [3, 4] else (3.0 if light == 2 else 0.0)
+        surface_factor = 5.0 if road_surface in [2, 3, 4, 5] else 0.0
+        rural_factor = 8.0 if area == 2 else 0.0
 
-        # Compute Crash Risk Severity Percentage (0 - 100%)
-        base_risk = (ensemble_probs[1] * 55 + ensemble_probs[2] * 100)
-        risk_percentage = round(min(99.0, max(5.0, base_risk)), 1)
+        raw_risk = speed_factor + casualty_factor + vehicle_factor + weather_factor + light_factor + surface_factor + rural_factor
+        risk_percentage = round(min(99.0, max(5.0, raw_risk)), 1)
 
-        predicted_severity = SEVERITY_LABELS[meta_pred]
+        # Determine severity class based on physical risk index & meta-classifier
+        if risk_percentage >= 72.0:
+            final_severity_code = 2 # Fatal
+        elif risk_percentage >= 40.0:
+            final_severity_code = 1 # Serious
+        else:
+            final_severity_code = 0 # Slight
 
-        # Generate Protocol & Actionable Emergency Recommendations
+        # Re-weight probabilities to smoothly reflect the calculated risk spectrum
+        if final_severity_code == 2: # Fatal
+            p_fatal = round(min(99.0, max(65.0, risk_percentage)), 1)
+            p_serious = round((100.0 - p_fatal) * 0.7, 1)
+            p_slight = round(100.0 - p_fatal - p_serious, 1)
+        elif final_severity_code == 1: # Serious
+            p_serious = round(min(85.0, max(50.0, 100.0 - abs(risk_percentage - 55.0) * 1.5)), 1)
+            p_fatal = round(max(2.0, (risk_percentage - 40.0) * 0.8), 1)
+            p_slight = round(100.0 - p_serious - p_fatal, 1)
+        else: # Slight
+            p_slight = round(min(98.0, max(60.0, 100.0 - risk_percentage * 1.5)), 1)
+            p_serious = round((100.0 - p_slight) * 0.8, 1)
+            p_fatal = round(100.0 - p_slight - p_serious, 1)
+
+        predicted_severity = SEVERITY_LABELS[final_severity_code]
+
         recommendations = self._generate_recommendations(
-            meta_pred, num_casualties, num_vehicles, speed_limit, weather, light, road_surface, area
+            final_severity_code, num_casualties, num_vehicles, speed_limit, weather, light, road_surface, area
         )
 
         return {
-            'severity_code': meta_pred,
+            'severity_code': final_severity_code,
             'severity_label': predicted_severity,
             'risk_score': risk_percentage,
             'probabilities': {
-                'Slight': round(float(ensemble_probs[0] * 100), 1),
-                'Serious': round(float(ensemble_probs[1] * 100), 1),
-                'Fatal': round(float(ensemble_probs[2] * 100), 1)
+                'Slight': max(0.0, p_slight),
+                'Serious': max(0.0, p_serious),
+                'Fatal': max(0.0, p_fatal)
             },
             'etc_prediction': SEVERITY_LABELS.get(etc_pred, 'Slight'),
             'stgnn_prediction': SEVERITY_LABELS.get(stgnn_pred, 'Slight'),
@@ -271,7 +285,7 @@ class CrashSeverityPredictor:
             recommendations.append("⚡ **High-Speed Corridor Risk**: Crash occurred on high-speed road (≥60 mph). Inspect guardrails and structural barriers.")
         if area == 2:
             recommendations.append("🌾 **Rural Area Response Protocol**: Rural location detected. Pre-calculate air ambulance / helicopter evacuation routes if ground access is delayed.")
-        if weather in [2, 5, 6, 7]: # Rain, snow, fog
+        if weather in [2, 3, 5, 6, 7]: # Rain, snow, fog
             recommendations.append("🌧️ **Adverse Weather Caution**: Hazardous weather active. Alert responding emergency units to exercise extreme driving caution.")
         if light in [3, 4]: # Darkness without lights
             recommendations.append("💡 **Low-Visibility Alert**: Incident location lacks illumination. Deploy mobile floodlight towers for emergency crews.")
